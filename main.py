@@ -1,8 +1,11 @@
-from fastapi import FastAPI, Response
+import os
+from fastapi import FastAPI, Response, Header, HTTPException
 from pydantic import BaseModel
 import edge_tts
 
 app = FastAPI()
+
+RELAY_SECRET = os.environ.get("RELAY_SECRET", "")
 
 
 class TTSRequest(BaseModel):
@@ -17,7 +20,9 @@ async def health():
 
 
 @app.post("/tts")
-async def tts(req: TTSRequest):
+async def tts(req: TTSRequest, x_api_key: str = Header(default="")):
+    if not RELAY_SECRET or x_api_key != RELAY_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     communicate = edge_tts.Communicate(req.text, req.voice, rate=req.rate)
     audio = b""
     async for chunk in communicate.stream():
